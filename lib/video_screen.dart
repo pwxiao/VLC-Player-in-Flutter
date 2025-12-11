@@ -16,10 +16,14 @@ class _VideoScreenState extends State<VideoScreen>
   late AnimationController _scaleVideoAnimationController;
   Animation<double> _scaleVideoAnimation =
       const AlwaysStoppedAnimation<double>(1.0);
-  double? _targetVideoScale;
+  double?  _targetVideoScale;
 
   // Cache value for later usage at the end of a scale-gesture
   double _lastZoomGestureScale = 1.0;
+
+  // 新增：视频URL变量
+  String _currentVideoURL =
+      "https://videos.pexels.com/video-files/3640406/3640406-uhd_2560_1440_25fps. mp4";
 
   @override
   void initState() {
@@ -31,21 +35,30 @@ class _VideoScreenState extends State<VideoScreen>
       vsync: this,
     );
 
-    const videoURL =
-        "https://videos.pexels.com/video-files/3640406/3640406-uhd_2560_1440_25fps.mp4";
-    vlcController = VlcPlayerController.network(videoURL, autoPlay: false);
+    _initializeVideoPlayer(_currentVideoURL);
+  }
 
-    // Workaround for stopping autoplay autoplay with first frame loaded
+  // 新增：初始化视频播放器的方法
+  void _initializeVideoPlayer(String videoURL) {
+    // 清理旧的controller
+    if (vlcController != null && vlcController.initialized) {
+      vlcController. removeOnInitListener(_stopAutoplay);
+      vlcController.stopRendererScanning();
+      vlcController.dispose();
+    }
+
+    vlcController = VlcPlayerController. network(videoURL, autoPlay: false);
     vlcController.addOnInitListener(_stopAutoplay);
+    setState(() {});
   }
 
   void setTargetNativeScale(double newValue) {
-    if (!newValue.isFinite) {
+    if (! newValue.isFinite) {
       return;
     }
     _scaleVideoAnimation =
         Tween<double>(begin: 1.0, end: newValue).animate(CurvedAnimation(
-      parent: _scaleVideoAnimationController,
+      parent:  _scaleVideoAnimationController,
       curve: Curves.easeInOut,
     ));
 
@@ -60,13 +73,13 @@ class _VideoScreenState extends State<VideoScreen>
   // https://github.com/solid-software/flutter_vlc_player/issues/336
   Future<void> _stopAutoplay() async {
     await vlcController.pause();
-    await vlcController.play();
+    await vlcController. play();
 
     await vlcController.setVolume(0);
 
     await Future.delayed(const Duration(milliseconds: 450), () async {
       await vlcController.pause();
-      await vlcController.setTime(0);
+      await vlcController. setTime(0);
       await vlcController.setVolume(100);
     });
   }
@@ -74,7 +87,7 @@ class _VideoScreenState extends State<VideoScreen>
   Future<void> _forceLandscape() async {
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeRight,
-      DeviceOrientation.landscapeLeft,
+      DeviceOrientation. landscapeLeft,
     ]);
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
@@ -85,6 +98,57 @@ class _VideoScreenState extends State<VideoScreen>
     ]);
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
         overlays: SystemUiOverlay.values); // to re-show bars
+  }
+
+  // 新增：显示输入对话框
+  void _showVideoURLDialog() {
+    TextEditingController urlController =
+        TextEditingController(text: _currentVideoURL);
+
+    showDialog(
+      context:  context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('输入视频链接'),
+          content: TextField(
+            controller: urlController,
+            decoration: const InputDecoration(
+              hintText: '请输入视频URL',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
+          actions:  [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                String newURL = urlController.text.trim();
+                if (newURL.isNotEmpty) {
+                  setState(() {
+                    _currentVideoURL = newURL;
+                  });
+                  _initializeVideoPlayer(newURL);
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('视频链接已更新')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('请输入有效的URL')),
+                  );
+                }
+              },
+              child:  const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -121,7 +185,7 @@ class _VideoScreenState extends State<VideoScreen>
           if (isPlaying == true) {
             vlcController.pause();
           } else {
-            vlcController.play();
+            vlcController. play();
           }
         },
         onScaleUpdate: (details) {
@@ -142,7 +206,7 @@ class _VideoScreenState extends State<VideoScreen>
           _lastZoomGestureScale = 1.0;
         },
         child: Stack(
-          children: [
+          children:  [
             Container(
               // Background behind the video
               color: Colors.black,
@@ -154,6 +218,11 @@ class _VideoScreenState extends State<VideoScreen>
           ],
         ),
       ),
-    ));
+    ),
+        // 新增：悬浮按钮
+        floatingActionButton: FloatingActionButton(
+          onPressed: _showVideoURLDialog,
+          child: const Icon(Icons.add_link),
+        ));
   }
 }
