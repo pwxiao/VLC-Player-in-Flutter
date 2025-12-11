@@ -1,7 +1,12 @@
 name: Build flutter app
 
 on:
-  workflow_dispatch:  
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Build target: 'android', 'ios', or 'all' (default)"
+        required: false
+        default: "all"
   pull_request:
     branches: [ "main" ]
 
