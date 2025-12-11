@@ -1,6 +1,7 @@
 name: Build flutter app
 
 on:
+  workflow_dispatch:  
   pull_request:
     branches: [ "main" ]
 
