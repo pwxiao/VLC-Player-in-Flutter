@@ -11,7 +11,7 @@ class VideoScreen extends StatefulWidget {
 
 class _VideoScreenState extends State<VideoScreen>
     with TickerProviderStateMixin {
-  late VlcPlayerController vlcController;
+  VlcPlayerController? vlcController;
 
   late AnimationController _scaleVideoAnimationController;
   Animation<double> _scaleVideoAnimation =
@@ -41,14 +41,14 @@ class _VideoScreenState extends State<VideoScreen>
   // 新增：初始化视频播放器的方法
   void _initializeVideoPlayer(String videoURL) {
     // 清理旧的controller
-    if (vlcController != null && vlcController.initialized) {
-      vlcController. removeOnInitListener(_stopAutoplay);
-      vlcController.stopRendererScanning();
-      vlcController.dispose();
+    if (vlcController != null) {
+      vlcController!.removeOnInitListener(_stopAutoplay);
+      vlcController!.stopRendererScanning();
+      vlcController!.dispose();
     }
 
-    vlcController = VlcPlayerController. network(videoURL, autoPlay: false);
-    vlcController.addOnInitListener(_stopAutoplay);
+    vlcController = VlcPlayerController.network(videoURL, autoPlay: false);
+    vlcController!.addOnInitListener(_stopAutoplay);
     setState(() {});
   }
 
@@ -72,15 +72,18 @@ class _VideoScreenState extends State<VideoScreen>
   // https://github.com/s12olid-software/flutter_vlc_player/issues/335
   // https://github.com/solid-software/flutter_vlc_player/issues/336
   Future<void> _stopAutoplay() async {
-    await vlcController.pause();
-    await vlcController. play();
+    if (vlcController == null) return;
+    await vlcController!.pause();
+    await vlcController!.play();
 
-    await vlcController.setVolume(0);
+    await vlcController!.setVolume(0);
 
     await Future.delayed(const Duration(milliseconds: 450), () async {
-      await vlcController.pause();
-      await vlcController. setTime(0);
-      await vlcController.setVolume(100);
+      if (vlcController != null) {
+        await vlcController!.pause();
+        await vlcController!.setTime(0);
+        await vlcController!.setVolume(100);
+      }
     });
   }
 
@@ -155,37 +158,43 @@ class _VideoScreenState extends State<VideoScreen>
   void dispose() {
     _forcePortrait();
 
-    vlcController.removeOnInitListener(_stopAutoplay);
-    vlcController.stopRendererScanning();
-    vlcController.dispose();
+    if (vlcController != null) {
+      vlcController!.removeOnInitListener(_stopAutoplay);
+      vlcController!.stopRendererScanning();
+      vlcController!.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
-    final videoSize = vlcController.value.size;
+    final videoSize = vlcController?.value.size ?? const Size(0, 0);
     if (videoSize.width > 0) {
       final newTargetScale = screenSize.width /
           (videoSize.width * screenSize.height / videoSize.height);
       setTargetNativeScale(newTargetScale);
     }
 
-    final vlcPlayer = VlcPlayer(
-        controller: vlcController,
-        aspectRatio: screenSize.width / screenSize.height,
-        placeholder: const Center(child: CircularProgressIndicator()));
+    final vlcPlayer = vlcController != null
+        ? VlcPlayer(
+            controller: vlcController!,
+            aspectRatio: screenSize.width / screenSize.height,
+            placeholder: const Center(child: CircularProgressIndicator()))
+        : const Center(child: CircularProgressIndicator());
 
     return Scaffold(
         body: Material(
       color: Colors.transparent,
       child: GestureDetector(
         onTap: () async {
-          var isPlaying = await vlcController.isPlaying();
-          if (isPlaying == true) {
-            vlcController.pause();
-          } else {
-            vlcController. play();
+          if (vlcController != null) {
+            var isPlaying = await vlcController!.isPlaying();
+            if (isPlaying == true) {
+              vlcController!.pause();
+            } else {
+              vlcController!.play();
+            }
           }
         },
         onScaleUpdate: (details) {
